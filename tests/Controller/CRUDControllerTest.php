@@ -4512,6 +4512,53 @@ final class CRUDControllerTest extends TestCase
         static::assertSame('bar', $this->request->request->get('foo'));
     }
 
+    public function testBatchActionWithRequesDataIdsAndAllItems(): void
+    {
+        $batchActions = ['delete' => ['label' => 'Foo Bar', 'ask_confirmation' => false]];
+
+        $this->admin->expects(static::exactly(2))
+            ->method('getBatchActions')
+            ->willReturn($batchActions);
+
+        $this->expectGetController();
+
+        $datagrid = $this->createMock(DatagridInterface::class);
+
+        $query = $this->createMock(ProxyQueryInterface::class);
+        $datagrid->expects(static::once())
+            ->method('getQuery')
+            ->willReturn($query);
+
+        $this->admin->expects(static::once())
+            ->method('getDatagrid')
+            ->willReturn($datagrid);
+
+        $this->httpKernel->expects(static::once())
+            ->method('handle')
+            ->willReturn($response = new Response());
+
+        $modelManager = $this->createMock(ModelManagerInterface::class);
+
+        $this->admin
+            ->method('getModelManager')
+            ->willReturn($modelManager);
+
+        $this->admin
+            ->method('getClass')
+            ->willReturn('Foo');
+
+        $modelManager->expects(static::never())
+            ->method('addIdentifiersToQuery');
+
+        $this->request->setMethod(Request::METHOD_POST);
+        $this->request->request->set('data', json_encode(['action' => 'delete', 'idx' => ['123', '456'], 'all_elements' => true]));
+        $this->request->request->set('_sonata_csrf_token', 'csrf-token-123_sonata.batch');
+
+        $result = $this->controller->batchAction($this->request);
+
+        static::assertSame($response, $result);
+    }
+
     /**
      * @phpstan-return iterable<array-key, array{string, string}>
      */
